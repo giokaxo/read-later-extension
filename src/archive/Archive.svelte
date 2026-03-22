@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BookmarkPlus, ArrowLeft, ExternalLink, Trash2 } from 'lucide-svelte'
+  import { BookmarkPlus, ArrowLeft } from 'lucide-svelte'
+  import ArchiveItemRow from '$lib/components/archive-item-row.svelte'
+  import EmptyState from '$lib/components/empty-state.svelte'
+  import LoadingState from '$lib/components/loading-state.svelte'
+  import PageHeader from '$lib/components/page-header.svelte'
   import { getAll, removeItem } from '$lib/storage.js'
   import type { ReadLaterItem } from '$lib/types.js'
 
@@ -34,24 +38,11 @@
     const data = await getAll()
     items = data.items
   }
-
-  function formatDate(ts: number) {
-    return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(ts))
-  }
-
-  function getDomain(url: string): string {
-    try {
-      return new URL(url).hostname.replace(/^www\./, '')
-    } catch {
-      return url
-    }
-  }
 </script>
 
 <div class="min-h-screen bg-background">
-  <!-- Header -->
-  <div class="flex items-center justify-between px-8 py-5">
-    <div class="flex items-center gap-3">
+  <PageHeader title="Archive" count={archived.length} icon={BookmarkPlus}>
+    {#snippet prefix()}
       <a
         href="newtab.html"
         class="flex items-center gap-1.5 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -59,76 +50,23 @@
       >
         <ArrowLeft class="h-4 w-4" />
       </a>
-      <div class="flex items-center gap-2">
-        <BookmarkPlus class="h-4 w-4 text-primary" />
-        <span class="text-sm font-medium text-muted-foreground">Archive</span>
-        {#if archived.length > 0}
-          <span class="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-            {archived.length}
-          </span>
-        {/if}
-      </div>
-    </div>
-  </div>
+    {/snippet}
+  </PageHeader>
 
   <div class="mx-auto max-w-2xl px-6 pb-16 pt-4">
     {#if loading}
-      <div class="flex justify-center pt-32">
-        <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-      </div>
-
+      <LoadingState />
     {:else if archived.length === 0}
-      <div class="flex flex-col items-center gap-3 pt-32 text-center">
-        <BookmarkPlus class="h-10 w-10 text-muted-foreground/30" />
-        <p class="font-medium text-foreground">Nothing archived yet</p>
-        <p class="max-w-xs text-sm text-muted-foreground">
-          Items you mark as read will appear here.
-        </p>
-      </div>
-
+      <EmptyState
+        icon={BookmarkPlus}
+        title="Nothing archived yet"
+        description="Items you mark as read will appear here."
+        class="pt-32"
+      />
     {:else}
       <div class="space-y-2">
         {#each archived as item (item.id)}
-          <div class="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3">
-            {#if item.favicon}
-              <img
-                src={item.favicon}
-                alt=""
-                class="h-5 w-5 shrink-0 rounded"
-                onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
-              />
-            {:else}
-              <div class="h-5 w-5 shrink-0 rounded bg-muted"></div>
-            {/if}
-
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium text-foreground">
-                {item.title || item.url}
-              </p>
-              <p class="text-xs text-muted-foreground">
-                {getDomain(item.url)} · Read {formatDate(item.readAt!)}
-              </p>
-            </div>
-
-            <div class="flex shrink-0 items-center gap-1">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                title="Open"
-              >
-                <ExternalLink class="h-3.5 w-3.5" />
-              </a>
-              <button
-                onclick={() => handleRemove(item.id)}
-                class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                title="Delete"
-              >
-                <Trash2 class="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
+          <ArchiveItemRow {item} onRemove={handleRemove} />
         {/each}
       </div>
     {/if}
