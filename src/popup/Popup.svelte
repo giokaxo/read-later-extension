@@ -36,6 +36,20 @@
       .slice(0, 5)
   )
 
+  async function closeCurrentTab() {
+    const tabId = currentTab?.id
+    if (tabId === undefined) {
+      window.close()
+      return
+    }
+
+    try {
+      await chrome.tabs.remove(tabId)
+    } catch {
+      window.close()
+    }
+  }
+
   onMount(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     currentTab = tab ?? null
@@ -59,10 +73,10 @@
             readAt: null,
           }
           await saveItem(newItem)
-          const refreshed = await getAll()
-          items = refreshed.items
           autoSavedItemId = newItem.id
           autoSaveResult = 'saved'
+          await closeCurrentTab()
+          return
         }
       } else {
         autoSaveResult = 'already-saved' // extension page, show neutral state
@@ -91,8 +105,8 @@
         readAt: null,
       }
       await saveItem(newItem)
-      const data = await getAll()
-      items = data.items
+      await closeCurrentTab()
+      return
     }
 
     saving = false
