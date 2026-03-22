@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun add:*)",
+      "Bash(npx shadcn-svelte@latest init --no-deps)",
+      "Bash(npx shadcn-svelte@latest init)",
+      "Bash(npx shadcn-svelte@latest init --help)",
+      "Bash(npx shadcn-svelte@latest init --preset default --base-color zinc)",
+      "Bash(npx shadcn-svelte@latest init --design-system-url \"https://shadcn-svelte.com/registry/ui.json\" --base-color zinc --css src/app.css --components-alias \"$lib/components\" --lib-alias \"$lib\" --utils-alias \"$lib/utils\" --hooks-alias \"$lib/hooks\" --ui-alias \"$lib/components/ui\")",
+      "Bash(npx shadcn-svelte@latest init --design-system-url \"https://shadcn-svelte.com/registry/ui.json\" --base-color zinc --css src/app.css --components-alias '$lib/components' --lib-alias '$lib' --utils-alias '$lib/utils' --hooks-alias '$lib/hooks' --ui-alias '$lib/components/ui')",
+      "Bash(npx shadcn-svelte@latest init --design-system-url https://shadcn-svelte.com/registry/ui.json --base-color zinc)",
+      "Bash(printf '\\\\n')",
+      "Bash(npx shadcn-svelte@latest init --base-color zinc)",
+      "Bash(bun run:*)"
+    ]
+  }
+}
