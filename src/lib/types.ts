@@ -1,5 +1,6 @@
 export type SuggestionAlgorithm = 'chronological' | 'reverse-chronological' | 'random'
 export type ThemeAppearance = 'system' | 'light' | 'dark'
+export type ToolbarAction = 'popup' | 'auto-save'
 export type ColorScheme =
   | 'default'
   | 'blue'
@@ -23,6 +24,7 @@ export interface ExtensionSettings {
   algorithm: SuggestionAlgorithm
   appearance: ThemeAppearance
   colorScheme: ColorScheme
+  toolbarAction: ToolbarAction
 }
 
 export interface StorageSchema {

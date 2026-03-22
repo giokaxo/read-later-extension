@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BookmarkPlus, Check, Monitor, Moon, Palette, Sun } from 'lucide-svelte'
+  import { BookmarkPlus, Check, Monitor, Moon, MousePointerClick, Palette, Sun } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button/index.js'
   import { Separator } from '$lib/components/ui/separator/index.js'
   import { DEFAULT_SETTINGS } from '$lib/settings.js'
@@ -11,6 +11,7 @@
     ExtensionSettings,
     SuggestionAlgorithm,
     ThemeAppearance,
+    ToolbarAction,
   } from '$lib/types.js'
 
   type AppearanceOption = {
@@ -30,6 +31,7 @@
   let algorithm = $state<SuggestionAlgorithm>(DEFAULT_SETTINGS.algorithm)
   let appearance = $state<ThemeAppearance>(DEFAULT_SETTINGS.appearance)
   let colorScheme = $state<ColorScheme>(DEFAULT_SETTINGS.colorScheme)
+  let toolbarAction = $state<ToolbarAction>(DEFAULT_SETTINGS.toolbarAction)
   let initialSettings = $state<ExtensionSettings>({ ...DEFAULT_SETTINGS })
   let saved = $state(false)
   let loading = $state(true)
@@ -133,7 +135,8 @@
     !loading &&
       (algorithm !== initialSettings.algorithm ||
         appearance !== initialSettings.appearance ||
-        colorScheme !== initialSettings.colorScheme)
+        colorScheme !== initialSettings.colorScheme ||
+        toolbarAction !== initialSettings.toolbarAction)
   )
 
   $effect(() => {
@@ -146,6 +149,7 @@
     algorithm = data.settings.algorithm
     appearance = data.settings.appearance
     colorScheme = data.settings.colorScheme
+    toolbarAction = data.settings.toolbarAction
     initialSettings = { ...data.settings }
     loading = false
   })
@@ -166,8 +170,8 @@
   }
 
   async function handleSave() {
-    await updateSettings({ algorithm, appearance, colorScheme })
-    initialSettings = { ...initialSettings, algorithm, appearance, colorScheme }
+    await updateSettings({ algorithm, appearance, colorScheme, toolbarAction })
+    initialSettings = { ...initialSettings, algorithm, appearance, colorScheme, toolbarAction }
     saved = true
     setTimeout(() => (saved = false), 2000)
   }
@@ -324,6 +328,60 @@
               </div>
             </button>
           {/each}
+        </div>
+      </section>
+
+      <section class="rounded-2xl border bg-card p-5 shadow-sm">
+        <div class="flex items-start gap-3">
+          <div class="rounded-xl bg-primary/10 p-2 text-primary">
+            <MousePointerClick class="h-4 w-4" />
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold">Toolbar Button Behavior</h2>
+            <p class="mt-1 text-sm text-muted-foreground">
+              Choose what happens when you click the extension icon in the toolbar.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-3 md:grid-cols-2">
+          <button
+            class="rounded-xl border px-4 py-4 text-left transition-colors {toolbarAction === 'popup'
+              ? 'border-primary bg-primary/5'
+              : 'border-border bg-background hover:bg-accent'}"
+            onclick={() => { toolbarAction = 'popup'; saved = false }}
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium">Show Popup</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  Opens the popup panel to manage or save the current page.
+                </p>
+              </div>
+              {#if toolbarAction === 'popup'}
+                <Check class="h-4 w-4 shrink-0 text-primary" />
+              {/if}
+            </div>
+          </button>
+
+          <button
+            class="rounded-xl border px-4 py-4 text-left transition-colors {toolbarAction === 'auto-save'
+              ? 'border-primary bg-primary/5'
+              : 'border-border bg-background hover:bg-accent'}"
+            onclick={() => { toolbarAction = 'auto-save'; saved = false }}
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium">Auto-Save</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  Instantly saves the current tab without showing any popup.
+                </p>
+              </div>
+              {#if toolbarAction === 'auto-save'}
+                <Check class="h-4 w-4 shrink-0 text-primary" />
+              {/if}
+            </div>
+          </button>
         </div>
       </section>
 
