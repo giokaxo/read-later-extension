@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { BookmarkPlus, CheckCheck, Settings, X } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button/index.js'
-  import { Badge } from '$lib/components/ui/badge/badge.svelte'
+  import Badge from '$lib/components/ui/badge/badge.svelte'
   import { Separator } from '$lib/components/ui/separator/index.js'
   import {
     getAll,
@@ -141,7 +141,7 @@
         {#each recentItems as item (item.id)}
           <li class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent group">
             {#if item.favicon}
-              <img src={item.favicon} alt="" class="h-4 w-4 flex-shrink-0 rounded-sm" onerror="this.style.display='none'" />
+              <img src={item.favicon} alt="" class="h-4 w-4 flex-shrink-0 rounded-sm" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')} />
             {:else}
               <div class="h-4 w-4 flex-shrink-0 rounded-sm bg-muted"></div>
             {/if}

@@ -5,4 +5,4 @@
   let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props()
 </script>
 
-<div class={cn('bg-card text-card-foreground rounded-lg border shadow-sm', className)} {...restProps} />
+<div class={cn('bg-card text-card-foreground rounded-lg border shadow-sm', className)} {...restProps}></div>

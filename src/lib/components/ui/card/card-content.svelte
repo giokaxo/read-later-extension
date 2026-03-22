@@ -5,4 +5,4 @@
   let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props()
 </script>
 
-<div class={cn('p-6 pt-0', className)} {...restProps} />
+<div class={cn('p-6 pt-0', className)} {...restProps}></div>

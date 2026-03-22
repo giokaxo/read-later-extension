@@ -11,7 +11,12 @@
       "Bash(npx shadcn-svelte@latest init --design-system-url https://shadcn-svelte.com/registry/ui.json --base-color zinc)",
       "Bash(printf '\\\\n')",
       "Bash(npx shadcn-svelte@latest init --base-color zinc)",
-      "Bash(bun run:*)"
+      "Bash(bun run:*)",
+      "Bash(/Users/giokaxo/Code/experiments/read-later-extension/popup.html:*)",
+      "Bash(__NEW_LINE_dd5a03fe561744bf__ cat:*)",
+      "Bash(/Users/giokaxo/Code/experiments/read-later-extension/newtab.html:*)",
+      "Bash(/Users/giokaxo/Code/experiments/read-later-extension/options.html:*)",
+      "Bash(perl -i -pe 's/flex-shrink-0/shrink-0/g' src/newtab/NewTab.svelte)"
     ]
   }
 }

@@ -5,4 +5,4 @@
   let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props()
 </script>
 
-<div class={cn('flex flex-col space-y-1.5 p-6', className)} {...restProps} />
+<div class={cn('flex flex-col space-y-1.5 p-6', className)} {...restProps}></div>
