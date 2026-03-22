@@ -1,6 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BookmarkPlus, ExternalLink, RefreshCw, Settings, Check, X, Archive } from 'lucide-svelte'
+  import {
+    BookmarkPlus,
+    ExternalLink,
+    RefreshCw,
+    Settings,
+    Check,
+    X,
+    Archive,
+    ArrowUpDown,
+  } from 'lucide-svelte'
   import SettingsEditor from '$lib/components/settings-editor.svelte'
   import { ScrollArea } from '$lib/components/ui/scroll-area/index.js'
   import { Button } from '$lib/components/ui/button/index.js'
@@ -21,23 +30,55 @@
   let skippedIds = $state<Set<string>>(new Set())
   let hoveredId = $state<string | null>(null)
   let stackExpanded = $state(false)
+  let stackContainer = $state<HTMLDivElement | null>(null)
+  let stackViewportHeight = $state(0)
   let settingsOpen = $state(false)
+  let suggestionId = $state<string | null>(null)
+  let pileSortOrder = $state<'oldest-first' | 'newest-first'>('oldest-first')
 
-  const COLLAPSED_STEP = 28   // px per card when stacked
-  const EXPANDED_STEP  = 68   // px per card when spread (full card visible + gap)
+  const STACK_CARD_STRIP_HEIGHT = 56
+  const STACK_LIST_GAP = 12
+  const STACK_PREVIEW_LIMIT = 6
+  const STACK_BOTTOM_MARGIN = 24
 
   let unread = $derived(
     items.filter((i) => i.readAt === null).sort((a, b) => a.savedAt - b.savedAt)
   )
 
+  let suggestionPool = $derived(unread.filter((i) => !skippedIds.has(i.id)))
   let suggestion = $derived(
-    selectSuggestion(
-      unread.filter((i) => !skippedIds.has(i.id)),
-      settings.algorithm
-    )
+    suggestionId ? suggestionPool.find((item) => item.id === suggestionId) ?? null : null
   )
 
-  let otherItems = $derived(unread.filter((i) => i.id !== suggestion?.id))
+  let otherItemsBase = $derived(unread.filter((i) => i.id !== suggestion?.id))
+  let otherItems = $derived(
+    pileSortOrder === 'oldest-first' ? otherItemsBase : [...otherItemsBase].reverse()
+  )
+  let pileSortLabel = $derived(pileSortOrder === 'oldest-first' ? 'Oldest first' : 'Newest first')
+  let previewItems = $derived(otherItems.slice(0, STACK_PREVIEW_LIMIT))
+  let hiddenStackCount = $derived(Math.max(otherItems.length - previewItems.length, 0))
+  let collapsedStackHeight = $derived(
+    previewItems.length === 0
+      ? 0
+      : previewItems.length * STACK_CARD_STRIP_HEIGHT + (previewItems.length - 1) * STACK_LIST_GAP
+  )
+  let stackContainerHeight = $derived(
+    stackViewportHeight > 0 ? Math.max(collapsedStackHeight, stackViewportHeight) : collapsedStackHeight
+  )
+
+  $effect(() => {
+    const nextSuggestion =
+      settings.algorithm === 'random'
+        ? suggestion && suggestionPool.some((item) => item.id === suggestion.id)
+          ? suggestion
+          : selectSuggestion(suggestionPool, settings.algorithm)
+        : selectSuggestion(suggestionPool, settings.algorithm)
+
+    const nextSuggestionId = nextSuggestion?.id ?? null
+    if (suggestionId !== nextSuggestionId) {
+      suggestionId = nextSuggestionId
+    }
+  })
 
   $effect(() => {
     if (typeof document === 'undefined') return
@@ -76,6 +117,10 @@
   onMount(() => {
     chrome.storage.onChanged.addListener(onStorageChanged)
 
+    const handleResize = () => updateStackViewportHeight()
+    window.addEventListener('resize', handleResize)
+    updateStackViewportHeight()
+
     void (async () => {
       const data = await getAll()
       items = data.items
@@ -83,7 +128,10 @@
       loading = false
     })()
 
-    return () => chrome.storage.onChanged.removeListener(onStorageChanged)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      chrome.storage.onChanged.removeListener(onStorageChanged)
+    }
   })
 
   async function handleReadNow(item: ReadLaterItem) {
@@ -134,14 +182,30 @@
     settingsOpen = true
   }
 
-  // Slight rotation for paper stack effect, alternates and varies by index
-  function paperRotation(i: number): string {
-    const rotations = [0.6, -0.5, 0.8, -0.7, 0.4, -0.6, 0.5]
-    return `rotate(${rotations[i % rotations.length]}deg)`
+  function updateStackViewportHeight() {
+    if (!stackContainer || typeof window === 'undefined') return
+
+    const { top } = stackContainer.getBoundingClientRect()
+    stackViewportHeight = Math.max(
+      collapsedStackHeight,
+      Math.floor(window.innerHeight - top - STACK_BOTTOM_MARGIN)
+    )
   }
+
+  function togglePileSortOrder() {
+    pileSortOrder = pileSortOrder === 'oldest-first' ? 'newest-first' : 'oldest-first'
+  }
+
+  $effect(() => {
+    otherItems.length
+    if (!stackContainer || typeof window === 'undefined') return
+
+    const frame = requestAnimationFrame(() => updateStackViewportHeight())
+    return () => cancelAnimationFrame(frame)
+  })
 </script>
 
-<div class="min-h-screen bg-background">
+<div class="flex h-dvh flex-col overflow-hidden bg-background">
   <!-- Header -->
   <div class="flex items-center justify-between px-8 py-5">
     <div class="flex items-center gap-2">
@@ -207,7 +271,7 @@
     </div>
   {/if}
 
-  <div class="flex flex-col items-center px-6 pb-16 pt-8">
+  <div class="flex min-h-0 flex-1 flex-col items-center overflow-hidden px-6 pb-8 pt-8">
     {#if loading}
       <div class="flex justify-center pt-32">
         <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
@@ -225,7 +289,7 @@
     {:else}
       <!-- ── MAIN SUGGESTION (large paper on top) ── -->
       {#if suggestion}
-        <div class="relative w-full max-w-lg">
+        <div class="relative w-full max-w-lg shrink-0">
           <!-- Stack depth papers (behind the main card) -->
           {#if otherItems.length >= 2}
             <div
@@ -241,58 +305,62 @@
           {/if}
 
           <!-- Main card -->
-          <div class="relative z-10 rounded-2xl border border-border bg-card p-8 shadow-md">
+          <div class="relative z-10 flex h-112 flex-col overflow-hidden rounded-2xl border border-border bg-card p-8 shadow-md">
             <!-- Label -->
             <p class="mb-5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Suggested for you
             </p>
 
-            <!-- Favicon + domain + title -->
-            <div class="flex items-start gap-4">
-              {#if suggestion.favicon}
-                <img
-                  src={suggestion.favicon}
-                  alt=""
-                  class="mt-1 h-10 w-10 shrink-0 rounded-lg"
-                  onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
-                />
-              {:else}
-                <div class="mt-1 h-10 w-10 shrink-0 rounded-lg bg-muted"></div>
-              {/if}
-              <div class="min-w-0 flex-1">
-                <span class="inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-                  {getDomain(suggestion.url)}
-                </span>
-                <h2 class="mt-2 line-clamp-3 text-2xl font-semibold leading-snug text-foreground">
-                  {suggestion.title || suggestion.url}
-                </h2>
-                <p class="mt-2 line-clamp-2 break-all text-sm text-muted-foreground">{suggestion.url}</p>
-              </div>
-            </div>
-
-            <!-- Meta row -->
-            <div class="mt-5 flex items-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
-              <span>Saved {formatDate(suggestion.savedAt)}</span>
-              <span>·</span>
-              <span>{relativeTime(suggestion.savedAt)}</span>
-              {#if unread.length > 1}
-                <span>·</span>
-                <span>{unread.length - 1} other {unread.length - 1 === 1 ? 'item' : 'items'} waiting</span>
-              {/if}
-            </div>
-
-            <!-- Actions -->
-            <div class="mt-5 flex gap-2">
-              <Button class="flex-1 gap-2 h-11 text-base" onclick={() => handleReadNow(suggestion!)}>
-                {#if settings.linkTarget === 'new-tab'}
-                  <ExternalLink class="h-4 w-4" />
+            <div class="flex min-h-0 flex-1 flex-col">
+              <!-- Favicon + domain + title -->
+              <div class="flex min-h-0 items-start gap-4">
+                {#if suggestion.favicon}
+                  <img
+                    src={suggestion.favicon}
+                    alt=""
+                    class="mt-1 h-10 w-10 shrink-0 rounded-lg"
+                    onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+                  />
+                {:else}
+                  <div class="mt-1 h-10 w-10 shrink-0 rounded-lg bg-muted"></div>
                 {/if}
-                Read Now
-              </Button>
-              <Button variant="outline" class="gap-2 h-11" onclick={handleSkip}>
-                <RefreshCw class="h-4 w-4" />
-                Skip
-              </Button>
+                <div class="min-h-0 min-w-0 flex-1">
+                  <span class="inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+                    {getDomain(suggestion.url)}
+                  </span>
+                  <h2 class="mt-2 line-clamp-4 text-2xl font-semibold leading-snug text-foreground">
+                    {suggestion.title || suggestion.url}
+                  </h2>
+                  <p class="mt-2 line-clamp-4 break-all text-sm text-muted-foreground">
+                    {suggestion.url}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Meta row -->
+              <div class="mt-auto flex items-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
+                <span>Saved {formatDate(suggestion.savedAt)}</span>
+                <span>·</span>
+                <span>{relativeTime(suggestion.savedAt)}</span>
+                {#if unread.length > 1}
+                  <span>·</span>
+                  <span>{unread.length - 1} other {unread.length - 1 === 1 ? 'item' : 'items'} waiting</span>
+                {/if}
+              </div>
+
+              <!-- Actions -->
+              <div class="mt-5 flex gap-2">
+                <Button class="h-11 flex-1 gap-2 text-base" onclick={() => handleReadNow(suggestion!)}>
+                  {#if settings.linkTarget === 'new-tab'}
+                    <ExternalLink class="h-4 w-4" />
+                  {/if}
+                  Read Now
+                </Button>
+                <Button variant="outline" class="h-11 gap-2" onclick={handleSkip}>
+                  <RefreshCw class="h-4 w-4" />
+                  Skip
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -300,109 +368,141 @@
 
       <!-- ── STACK OF PAPERS (below main card) ── -->
       {#if otherItems.length > 0}
-        <div class="mt-12 w-full max-w-lg">
-          <p class="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Reading pile · {otherItems.length}
-          </p>
-
-          <!-- Container: hover spreads the pile -->
-          <div
-            class="relative"
-            onmouseenter={() => (stackExpanded = true)}
-            onmouseleave={() => { stackExpanded = false; hoveredId = null }}
-            role="list"
-          >
-            {#each otherItems as item, i (item.id)}
-              {@const isHovered = hoveredId === item.id}
-              {@const step = stackExpanded ? EXPANDED_STEP : COLLAPSED_STEP}
-              <div
-                class="absolute w-full cursor-pointer rounded-2xl border bg-card"
-                style="
-                  top: {i * step}px;
-                  z-index: {isHovered ? 100 : otherItems.length - i};
-                  border-color: {isHovered ? 'hsl(var(--ring) / 0.45)' : 'hsl(var(--border))'};
-                  transform: {isHovered
-                    ? 'translateY(-20px) scale(1.025)'
-                    : stackExpanded ? 'none' : paperRotation(i)};
-                  box-shadow: {isHovered
-                    ? '0 24px 48px -8px rgba(0,0,0,0.20), 0 8px 16px -4px rgba(0,0,0,0.10)'
-                    : stackExpanded
-                      ? '0 2px 8px rgba(0,0,0,0.08)'
-                      : '0 1px 4px rgba(0,0,0,0.06)'};
-                  transition:
-                    top    0.28s cubic-bezier(0.4, 0, 0.2, 1),
-                    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-                    box-shadow 0.22s ease,
-                    border-color 0.15s ease;
-                "
-                onmouseenter={() => (hoveredId = item.id)}
-                onmouseleave={() => (hoveredId = null)}
-                role="listitem"
+        <div class="group/pile mt-12 flex min-h-0 w-full max-w-lg flex-1 flex-col">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <p class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Reading pile · {otherItems.length}
+            </p>
+            {#if otherItems.length > 1}
+              <button
+                type="button"
+                onclick={togglePileSortOrder}
+                class="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/90 px-2.5 py-1 text-[11px] font-medium text-muted-foreground opacity-0 transition-all duration-200 pointer-events-none group-hover/pile:pointer-events-auto group-hover/pile:opacity-100 group-focus-within/pile:pointer-events-auto group-focus-within/pile:opacity-100 hover:border-primary/40 hover:bg-background hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100"
+                title={`Sort reading pile: ${pileSortLabel}`}
+                aria-label={`Sort reading pile: ${pileSortLabel}. Click to toggle.`}
               >
-                <!-- Always-visible strip -->
-                <div class="flex items-center gap-3 px-5 py-3.5">
-                  {#if item.favicon}
-                    <img
-                      src={item.favicon}
-                      alt=""
-                      class="h-4 w-4 shrink-0 rounded"
-                      onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
-                    />
-                  {:else}
-                    <div class="h-4 w-4 shrink-0 rounded bg-muted"></div>
-                  {/if}
-                  <p class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                    {item.title || item.url}
-                  </p>
-                  <span class="shrink-0 text-xs text-muted-foreground">{relativeTime(item.savedAt)}</span>
-                </div>
+                <ArrowUpDown class="h-3.5 w-3.5" />
+                {pileSortLabel}
+              </button>
+            {/if}
+          </div>
 
-                <!-- Expanded section: smooth via grid-rows trick -->
-                <div
-                  style="
-                    display: grid;
-                    grid-template-rows: {isHovered ? '1fr' : '0fr'};
-                    overflow: hidden;
-                    transition: grid-template-rows 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-                  "
-                >
-                  <div style="min-height: 0" class="overflow-hidden">
-                    <div class="border-t border-border px-5 pb-4 pt-3">
-                      <p class="mb-0.5 text-xs font-medium text-secondary-foreground">{getDomain(item.url)}</p>
-                      <p class="truncate text-xs text-muted-foreground">{item.url}</p>
-                      <p class="mt-1 text-xs text-muted-foreground">Saved {formatDate(item.savedAt)}</p>
-                      <div class="mt-3 flex gap-2">
-                        <Button class="h-8 flex-1 gap-1.5 text-xs" onclick={() => handleReadNow(item)}>
-                          {#if settings.linkTarget === 'new-tab'}
-                            <ExternalLink class="h-3.5 w-3.5" />
-                          {/if}
-                          Read Now
-                        </Button>
-                        <button
-                          onclick={() => handleMarkRead(item.id)}
-                          class="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
-                          title="Mark as read"
-                        >
-                          <Check class="h-3.5 w-3.5" />
-                          Done
-                        </button>
-                        <button
-                          onclick={() => handleRemove(item.id)}
-                          class="flex h-8 items-center rounded-md border border-border px-2.5 text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
-                          title="Remove"
-                        >
-                          <X class="h-3.5 w-3.5" />
-                        </button>
+          <div
+            class="relative min-h-0 flex-1 overflow-x-visible overflow-y-hidden bg-background/95"
+            bind:this={stackContainer}
+            onmouseenter={() => {
+              updateStackViewportHeight()
+              stackExpanded = true
+            }}
+            onmouseleave={() => {
+              stackExpanded = false
+              hoveredId = null
+            }}
+            style="height: {stackContainerHeight}px;"
+            role="group"
+            aria-label="Reading pile"
+          >
+            <ScrollArea
+              class="h-full overflow-x-visible"
+              type={stackExpanded ? 'always' : 'auto'}
+              orientation="vertical"
+              showScrollbar={stackExpanded}
+              rootClass="overflow-x-visible overflow-y-hidden"
+              viewportClass="overflow-x-visible"
+            >
+              <div
+                class="h-full py-3"
+                class:overscroll-contain={stackExpanded}
+                class:pointer-events-none={!stackExpanded}
+              >
+              <div class="flex flex-col gap-3" role="list" aria-label="Reading pile">
+                {#each otherItems as item (item.id)}
+                  {@const isHovered = hoveredId === item.id}
+                  <div
+                    class="rounded-2xl border bg-card"
+                    style="
+                      border-color: {isHovered ? 'hsl(var(--ring) / 0.45)' : 'hsl(var(--border))'};
+                      transform: {isHovered ? 'translateY(-2px)' : 'none'};
+                      box-shadow: {isHovered
+                        ? '0 18px 36px -16px rgba(0,0,0,0.28), 0 8px 16px -10px rgba(0,0,0,0.18)'
+                        : '0 2px 8px rgba(0,0,0,0.08)'};
+                      transition:
+                        transform 0.18s ease,
+                        box-shadow 0.18s ease,
+                        border-color 0.15s ease;
+                    "
+                    onmouseenter={() => (hoveredId = item.id)}
+                    onmouseleave={() => (hoveredId = null)}
+                    role="listitem"
+                  >
+                    <div class="flex items-center gap-3 px-5 py-3.5">
+                      {#if item.favicon}
+                        <img
+                          src={item.favicon}
+                          alt=""
+                          class="h-4 w-4 shrink-0 rounded"
+                          onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+                        />
+                      {:else}
+                        <div class="h-4 w-4 shrink-0 rounded bg-muted"></div>
+                      {/if}
+                      <p class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {item.title || item.url}
+                      </p>
+                      <span class="shrink-0 text-xs text-muted-foreground">{relativeTime(item.savedAt)}</span>
+                    </div>
+
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-rows: {stackExpanded ? '1fr' : '0fr'};
+                        overflow: hidden;
+                        transition: grid-template-rows 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+                      "
+                    >
+                      <div style="min-height: 0" class="overflow-hidden">
+                        <div class="border-t border-border px-5 pb-4 pt-3">
+                          <p class="mb-0.5 text-xs font-medium text-secondary-foreground">{getDomain(item.url)}</p>
+                          <p class="truncate text-xs text-muted-foreground">{item.url}</p>
+                          <p class="mt-1 text-xs text-muted-foreground">Saved {formatDate(item.savedAt)}</p>
+                          <div class="mt-3 flex gap-2">
+                            <Button class="h-8 flex-1 gap-1.5 text-xs" onclick={() => handleReadNow(item)}>
+                              {#if settings.linkTarget === 'new-tab'}
+                                <ExternalLink class="h-3.5 w-3.5" />
+                              {/if}
+                              Read Now
+                            </Button>
+                            <button
+                              onclick={() => handleMarkRead(item.id)}
+                              class="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                              title="Mark as read"
+                            >
+                              <Check class="h-3.5 w-3.5" />
+                              Done
+                            </button>
+                            <button
+                              onclick={() => handleRemove(item.id)}
+                              class="flex h-8 items-center rounded-md border border-border px-2.5 text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                              title="Remove"
+                            >
+                              <X class="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                {/each}
               </div>
-            {/each}
+              </div>
+            </ScrollArea>
 
-            <!-- Reactive spacer matches current step -->
-            <div style="height: {otherItems.length * (stackExpanded ? EXPANDED_STEP : COLLAPSED_STEP) + 52}px;
-                        transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+            {#if hiddenStackCount > 0 && !stackExpanded}
+              <div class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background via-background/95 to-transparent"></div>
+              <div class="pointer-events-none absolute bottom-3 right-3 z-10 rounded-full border border-border bg-background/95 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+                +{hiddenStackCount} more
+              </div>
+            {/if}
           </div>
         </div>
       {/if}

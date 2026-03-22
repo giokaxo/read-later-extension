@@ -6,29 +6,35 @@
   let {
     class: className,
     orientation = 'vertical',
+    showScrollbar = true,
+    rootClass = '',
+    viewportClass = '',
     ref = $bindable(null),
     children,
     ...restProps
   }: ScrollAreaPrimitive.RootProps & {
     class?: string
     orientation?: 'vertical' | 'horizontal' | 'both'
+    showScrollbar?: boolean
+    rootClass?: string
+    viewportClass?: string
   } = $props()
 </script>
 
 <ScrollAreaPrimitive.Root
   bind:ref
-  class={cn('relative overflow-hidden', className)}
+  class={cn('relative overflow-hidden', rootClass, className)}
   {...restProps}
 >
-  <ScrollAreaPrimitive.Viewport class="h-full w-full rounded-[inherit]">
+  <ScrollAreaPrimitive.Viewport class={cn('h-full w-full rounded-[inherit]', viewportClass)}>
     {@render children?.()}
   </ScrollAreaPrimitive.Viewport>
 
-  {#if orientation === 'vertical' || orientation === 'both'}
+  {#if showScrollbar && (orientation === 'vertical' || orientation === 'both')}
     <Scrollbar orientation="vertical" />
   {/if}
 
-  {#if orientation === 'horizontal' || orientation === 'both'}
+  {#if showScrollbar && (orientation === 'horizontal' || orientation === 'both')}
     <Scrollbar orientation="horizontal" />
   {/if}
 
