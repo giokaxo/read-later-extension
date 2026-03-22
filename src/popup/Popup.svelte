@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BookmarkPlus, CheckCheck, Settings, X } from 'lucide-svelte'
+  import { BookmarkPlus, CheckCheck, Check, Settings, X } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button/index.js'
-  import Badge from '$lib/components/ui/badge/badge.svelte'
   import { Separator } from '$lib/components/ui/separator/index.js'
   import {
     getAll,
@@ -18,6 +17,9 @@
   let currentTab = $state<chrome.tabs.Tab | null>(null)
   let loading = $state(true)
   let saving = $state(false)
+  // null = not in auto-save mode; 'saved' = just saved; 'already-saved' = was already in list
+  let autoSaveResult = $state<'saved' | 'already-saved' | null>(null)
+  let autoSavedItemId = $state<string | null>(null)
 
   let currentItem = $derived(
     currentTab?.url ? isItemSaved(items, currentTab.url) : undefined
@@ -36,6 +38,35 @@
     currentTab = tab ?? null
     const data = await getAll()
     items = data.items
+
+    if (data.settings.toolbarAction === 'auto-save') {
+      const url = tab?.url
+      if (url && !url.startsWith('chrome://') && !url.startsWith('chrome-extension://')) {
+        const existing = isItemSaved(data.items, url)
+        if (existing) {
+          autoSavedItemId = existing.id
+          autoSaveResult = 'already-saved'
+        } else {
+          const newItem: ReadLaterItem = {
+            id: crypto.randomUUID(),
+            url,
+            title: tab?.title ?? url,
+            favicon: tab?.favIconUrl ?? '',
+            savedAt: Date.now(),
+            readAt: null,
+          }
+          await saveItem(newItem)
+          const refreshed = await getAll()
+          items = refreshed.items
+          autoSavedItemId = newItem.id
+          autoSaveResult = 'saved'
+        }
+      } else {
+        autoSaveResult = 'already-saved' // extension page, show neutral state
+      }
+      return
+    }
+
     loading = false
   })
 
@@ -79,7 +110,7 @@
   }
 </script>
 
-<div class="flex flex-col">
+<div class="relative flex flex-col">
   <!-- Header -->
   <div class="flex items-center justify-between px-4 py-3">
     <div class="flex items-center gap-2">
@@ -170,6 +201,80 @@
   {:else if !loading}
     <div class="px-4 pb-4 text-center">
       <p class="text-xs text-muted-foreground">No saved items yet.</p>
+    </div>
+  {/if}
+
+  <!-- Auto-save confirmation overlay -->
+  {#if autoSaveResult !== null}
+    <div class="absolute inset-0 flex flex-col rounded-[inherit] bg-background">
+      <!-- Top accent bar -->
+      <div class="h-0.5 w-full rounded-t-[inherit] {autoSaveResult === 'saved' ? 'bg-green-500' : 'bg-border'}"></div>
+
+      <div class="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-8 text-center">
+        {#if autoSaveResult === 'saved'}
+          <!-- Icon -->
+          <div class="relative">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 ring-1 ring-green-200">
+              <Check class="h-7 w-7 stroke-[2.5]" />
+            </div>
+          </div>
+
+          <!-- Text -->
+          <div class="space-y-1">
+            <p class="text-sm font-semibold text-foreground">Saved for later</p>
+            <p class="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{currentTab?.title ?? currentTab?.url}</p>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex w-full flex-col gap-2 pt-1">
+            {#if autoSavedItemId}
+              <button
+                onclick={async () => { await handleRemove(autoSavedItemId!); window.close() }}
+                class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/5 hover:text-destructive"
+              >
+                <X class="h-3.5 w-3.5" />
+                Remove
+              </button>
+            {/if}
+            <button
+              onclick={() => window.close()}
+              class="flex w-full items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Done
+            </button>
+          </div>
+        {:else}
+          <!-- Icon -->
+          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground ring-1 ring-border">
+            <BookmarkPlus class="h-7 w-7" />
+          </div>
+
+          <!-- Text -->
+          <div class="space-y-1">
+            <p class="text-sm font-semibold text-foreground">Already in your list</p>
+            <p class="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{currentTab?.title ?? currentTab?.url}</p>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex w-full flex-col gap-2 pt-1">
+            {#if autoSavedItemId}
+              <button
+                onclick={async () => { await handleRemove(autoSavedItemId!); window.close() }}
+                class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/5 hover:text-destructive"
+              >
+                <X class="h-3.5 w-3.5" />
+                Remove
+              </button>
+            {/if}
+            <button
+              onclick={() => window.close()}
+              class="flex w-full items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Done
+            </button>
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
