@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BookmarkPlus, ExternalLink, RefreshCw, Settings, Check, X } from 'lucide-svelte'
+  import { BookmarkPlus, ExternalLink, RefreshCw, Settings, Check, X, Archive } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button/index.js'
   import {
     getAll,
@@ -15,7 +15,7 @@
   import type { ReadLaterItem, ExtensionSettings, SuggestionAlgorithm } from '$lib/types.js'
 
   let items = $state<ReadLaterItem[]>([])
-  let settings = $state<ExtensionSettings>({ algorithm: 'chronological' })
+  let settings = $state<ExtensionSettings>(normalizeSettings())
   let loading = $state(true)
   let skippedIds = $state<Set<string>>(new Set())
   let hoveredId = $state<string | null>(null)
@@ -63,18 +63,28 @@
 
   let otherItems = $derived(unread.filter((i) => i.id !== suggestion?.id))
 
-  onMount(async () => {
-    const data = await getAll()
-    items = data.items
-    settings = data.settings
-    loading = false
-
     function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>) {
-      if (changes.items) items = changes.items.newValue ?? []
-      if (changes.settings) settings = normalizeSettings(changes.settings.newValue)
+      if (changes.items) {
+        items = (changes.items.newValue as ReadLaterItem[] | undefined) ?? []
+      }
+
+      if (changes.settings) {
+        settings = normalizeSettings(
+          changes.settings.newValue as Partial<ExtensionSettings> | undefined
+        )
+      }
     }
 
     chrome.storage.onChanged.addListener(onStorageChanged)
+
+  onMount(() => {
+    void (async () => {
+      const data = await getAll()
+      items = data.items
+      settings = data.settings
+      loading = false
+    })()
+
     return () => chrome.storage.onChanged.removeListener(onStorageChanged)
   })
 
@@ -125,25 +135,35 @@
   }
 </script>
 
-<div class="min-h-screen bg-stone-100 dark:bg-stone-900">
+<div class="min-h-screen bg-background">
   <!-- Header -->
   <div class="flex items-center justify-between px-8 py-5">
     <div class="flex items-center gap-2">
-      <BookmarkPlus class="h-4 w-4 text-stone-500" />
-      <span class="text-sm font-medium text-stone-600 dark:text-stone-400">Read Later</span>
+      <BookmarkPlus class="h-4 w-4 text-primary" />
+      <span class="text-sm font-medium text-muted-foreground">Read Later</span>
       {#if unread.length > 0}
-        <span class="rounded-full bg-stone-700 px-2 py-0.5 text-xs font-semibold text-white dark:bg-stone-300 dark:text-stone-900">
+        <span class="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
           {unread.length}
         </span>
       {/if}
     </div>
-    <button
-      onclick={openSettings}
-      class="rounded-md p-1.5 text-stone-400 transition-colors hover:bg-stone-200 hover:text-stone-600 dark:hover:bg-stone-800"
-      title="Settings"
-    >
-      <Settings class="h-4 w-4" />
-    </button>
+    <div class="flex items-center gap-1">
+      <a
+        href="archive.html"
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        title="Archive"
+      >
+        <Archive class="h-3.5 w-3.5" />
+        Archive
+      </a>
+      <button
+        onclick={openSettings}
+        class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        title="Settings"
+      >
+        <Settings class="h-4 w-4" />
+      </button>
+    </div>
   </div>
 
   <!-- Settings modal -->
@@ -158,38 +178,38 @@
     >
       <!-- Panel -->
       <div
-        class="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900"
+        class="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl"
         onclick={(e) => e.stopPropagation()}
         role="presentation"
       >
         <div class="mb-5 flex items-center justify-between">
-          <h2 class="text-base font-semibold text-stone-900 dark:text-stone-100">Settings</h2>
+          <h2 class="text-base font-semibold text-foreground">Settings</h2>
           <button
             onclick={() => (settingsOpen = false)}
-            class="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800"
+            class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <X class="h-4 w-4" />
           </button>
         </div>
 
-        <p class="mb-1 text-sm font-medium text-stone-700 dark:text-stone-300">Suggestion Algorithm</p>
-        <p class="mb-3 text-xs text-stone-400">How items are selected to show on new tab.</p>
+        <p class="mb-1 text-sm font-medium text-foreground">Suggestion Algorithm</p>
+        <p class="mb-3 text-xs text-muted-foreground">How items are selected to show on new tab.</p>
 
         <div class="space-y-2">
           {#each algorithms as option (option.value)}
             <button
               class="w-full rounded-lg border px-4 py-3 text-left transition-colors {settingsAlgorithm === option.value
-                ? 'border-stone-700 bg-stone-700/5 dark:border-stone-300 dark:bg-stone-300/10'
-                : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-stone-700 dark:bg-stone-800 dark:hover:bg-stone-700'}"
+                ? 'border-primary bg-primary/5'
+                : 'border-border bg-card hover:bg-accent'}"
               onclick={() => (settingsAlgorithm = option.value)}
             >
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-stone-800 dark:text-stone-200">{option.label}</span>
+                <span class="text-sm font-medium text-foreground">{option.label}</span>
                 {#if settingsAlgorithm === option.value}
-                  <Check class="h-4 w-4 text-stone-700 dark:text-stone-300" />
+                  <Check class="h-4 w-4 text-primary" />
                 {/if}
               </div>
-              <p class="mt-0.5 text-xs text-stone-400">{option.description}</p>
+              <p class="mt-0.5 text-xs text-muted-foreground">{option.description}</p>
             </button>
           {/each}
         </div>
@@ -211,14 +231,14 @@
   <div class="flex flex-col items-center px-6 pb-16 pt-8">
     {#if loading}
       <div class="flex justify-center pt-32">
-        <div class="h-6 w-6 animate-spin rounded-full border-2 border-stone-400 border-t-transparent"></div>
+        <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
       </div>
 
     {:else if unread.length === 0}
       <div class="flex flex-col items-center gap-3 pt-32 text-center">
-        <BookmarkPlus class="h-10 w-10 text-stone-300" />
-        <p class="font-medium text-stone-500">Nothing saved yet</p>
-        <p class="max-w-xs text-sm text-stone-400">
+        <BookmarkPlus class="h-10 w-10 text-muted-foreground/30" />
+        <p class="font-medium text-foreground">Nothing saved yet</p>
+        <p class="max-w-xs text-sm text-muted-foreground">
           Click the extension icon to save tabs for later.
         </p>
       </div>
@@ -230,21 +250,21 @@
           <!-- Stack depth papers (behind the main card) -->
           {#if otherItems.length >= 2}
             <div
-              class="absolute inset-x-0 top-0 h-full rounded-2xl border border-stone-300 bg-stone-200 dark:border-stone-700 dark:bg-stone-800"
+              class="absolute inset-x-0 top-0 h-full rounded-2xl border border-border bg-muted/80"
               style="transform: translate(8px, 9px) rotate(2.5deg);"
             ></div>
           {/if}
           {#if otherItems.length >= 1}
             <div
-              class="absolute inset-x-0 top-0 h-full rounded-2xl border border-stone-200 bg-stone-50 dark:border-stone-700 dark:bg-stone-850"
+              class="absolute inset-x-0 top-0 h-full rounded-2xl border border-border bg-background/80"
               style="transform: translate(-5px, 5px) rotate(-1.5deg);"
             ></div>
           {/if}
 
           <!-- Main card -->
-          <div class="relative z-10 rounded-2xl border border-stone-200 bg-white p-8 shadow-md dark:border-stone-700 dark:bg-stone-800">
+          <div class="relative z-10 rounded-2xl border border-border bg-card p-8 shadow-md">
             <!-- Label -->
-            <p class="mb-5 text-xs font-semibold uppercase tracking-widest text-stone-400">
+            <p class="mb-5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Suggested for you
             </p>
 
@@ -258,21 +278,21 @@
                   onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
                 />
               {:else}
-                <div class="mt-1 h-10 w-10 shrink-0 rounded-lg bg-stone-100 dark:bg-stone-700"></div>
+                <div class="mt-1 h-10 w-10 shrink-0 rounded-lg bg-muted"></div>
               {/if}
               <div class="min-w-0 flex-1">
-                <span class="inline-block rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500 dark:bg-stone-700 dark:text-stone-400">
+                <span class="inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
                   {getDomain(suggestion.url)}
                 </span>
-                <h2 class="mt-2 text-2xl font-semibold leading-snug text-stone-900 dark:text-stone-100 line-clamp-3">
+                <h2 class="mt-2 line-clamp-3 text-2xl font-semibold leading-snug text-foreground">
                   {suggestion.title || suggestion.url}
                 </h2>
-                <p class="mt-2 text-sm text-stone-400 line-clamp-2 break-all">{suggestion.url}</p>
+                <p class="mt-2 line-clamp-2 break-all text-sm text-muted-foreground">{suggestion.url}</p>
               </div>
             </div>
 
             <!-- Meta row -->
-            <div class="mt-5 flex items-center gap-4 border-t border-stone-100 pt-4 text-xs text-stone-400 dark:border-stone-700">
+            <div class="mt-5 flex items-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
               <span>Saved {formatDate(suggestion.savedAt)}</span>
               <span>·</span>
               <span>{relativeTime(suggestion.savedAt)}</span>
@@ -300,7 +320,7 @@
       <!-- ── STACK OF PAPERS (below main card) ── -->
       {#if otherItems.length > 0}
         <div class="mt-12 w-full max-w-lg">
-          <p class="mb-3 text-xs font-semibold uppercase tracking-widest text-stone-400">
+          <p class="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Reading pile · {otherItems.length}
           </p>
 
@@ -315,11 +335,11 @@
               {@const isHovered = hoveredId === item.id}
               {@const step = stackExpanded ? EXPANDED_STEP : COLLAPSED_STEP}
               <div
-                class="absolute w-full cursor-pointer rounded-2xl border bg-white dark:bg-stone-800"
+                class="absolute w-full cursor-pointer rounded-2xl border bg-card"
                 style="
                   top: {i * step}px;
                   z-index: {isHovered ? 100 : otherItems.length - i};
-                  border-color: {isHovered ? 'rgb(214 211 209)' : 'rgb(231 229 228)'};
+                  border-color: {isHovered ? 'hsl(var(--ring) / 0.45)' : 'hsl(var(--border))'};
                   transform: {isHovered
                     ? 'translateY(-20px) scale(1.025)'
                     : stackExpanded ? 'none' : paperRotation(i)};
@@ -348,12 +368,12 @@
                       onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
                     />
                   {:else}
-                    <div class="h-4 w-4 shrink-0 rounded bg-stone-100 dark:bg-stone-700"></div>
+                    <div class="h-4 w-4 shrink-0 rounded bg-muted"></div>
                   {/if}
-                  <p class="min-w-0 flex-1 truncate text-sm font-medium text-stone-800 dark:text-stone-200">
+                  <p class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                     {item.title || item.url}
                   </p>
-                  <span class="shrink-0 text-xs text-stone-400">{relativeTime(item.savedAt)}</span>
+                  <span class="shrink-0 text-xs text-muted-foreground">{relativeTime(item.savedAt)}</span>
                 </div>
 
                 <!-- Expanded section: smooth via grid-rows trick -->
@@ -366,10 +386,10 @@
                   "
                 >
                   <div style="min-height: 0" class="overflow-hidden">
-                    <div class="border-t border-stone-100 px-5 pb-4 pt-3 dark:border-stone-700">
-                      <p class="mb-0.5 text-xs font-medium text-stone-500">{getDomain(item.url)}</p>
-                      <p class="truncate text-xs text-stone-400">{item.url}</p>
-                      <p class="mt-1 text-xs text-stone-400">Saved {formatDate(item.savedAt)}</p>
+                    <div class="border-t border-border px-5 pb-4 pt-3">
+                      <p class="mb-0.5 text-xs font-medium text-secondary-foreground">{getDomain(item.url)}</p>
+                      <p class="truncate text-xs text-muted-foreground">{item.url}</p>
+                      <p class="mt-1 text-xs text-muted-foreground">Saved {formatDate(item.savedAt)}</p>
                       <div class="mt-3 flex gap-2">
                         <Button class="h-8 flex-1 gap-1.5 text-xs" onclick={() => handleReadNow(item)}>
                           <ExternalLink class="h-3.5 w-3.5" />
@@ -377,7 +397,7 @@
                         </Button>
                         <button
                           onclick={() => handleMarkRead(item.id)}
-                          class="flex h-8 items-center gap-1.5 rounded-md border border-stone-200 px-3 text-xs text-stone-500 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-600 dark:border-stone-600"
+                          class="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                           title="Mark as read"
                         >
                           <Check class="h-3.5 w-3.5" />
@@ -385,7 +405,7 @@
                         </button>
                         <button
                           onclick={() => handleRemove(item.id)}
-                          class="flex h-8 items-center rounded-md border border-stone-200 px-2.5 text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-stone-600"
+                          class="flex h-8 items-center rounded-md border border-border px-2.5 text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                           title="Remove"
                         >
                           <X class="h-3.5 w-3.5" />

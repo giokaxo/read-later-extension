@@ -13,6 +13,7 @@ export default defineConfig({
         popup:            resolve(__dirname, 'popup.html'),
         newtab:           resolve(__dirname, 'newtab.html'),
         options:          resolve(__dirname, 'options.html'),
+        archive:          resolve(__dirname, 'archive.html'),
         'service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
       },
       output: {
