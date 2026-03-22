@@ -9,13 +9,46 @@
     bumpItem,
     selectSuggestion,
     relativeTime,
+    updateSettings,
   } from '$lib/storage.js'
-  import type { ReadLaterItem, ExtensionSettings } from '$lib/types.js'
+  import { normalizeSettings } from '$lib/settings.js'
+  import type { ReadLaterItem, ExtensionSettings, SuggestionAlgorithm } from '$lib/types.js'
 
   let items = $state<ReadLaterItem[]>([])
   let settings = $state<ExtensionSettings>({ algorithm: 'chronological' })
   let loading = $state(true)
   let skippedIds = $state<Set<string>>(new Set())
+  let hoveredId = $state<string | null>(null)
+  let stackExpanded = $state(false)
+
+  const COLLAPSED_STEP = 28   // px per card when stacked
+  const EXPANDED_STEP  = 68   // px per card when spread (full card visible + gap)
+
+  let settingsOpen = $state(false)
+  let settingsAlgorithm = $state<SuggestionAlgorithm>('chronological')
+  let settingsSaved = $state(false)
+
+  const algorithms: { value: SuggestionAlgorithm; label: string; description: string }[] = [
+    { value: 'chronological', label: 'Oldest First', description: 'Suggest items in the order they were saved' },
+    { value: 'reverse-chronological', label: 'Newest First', description: 'Suggest the most recently saved items first' },
+    { value: 'random', label: 'Random', description: 'Pick a random saved item each time' },
+  ]
+
+  function openSettings() {
+    settingsAlgorithm = settings.algorithm
+    settingsSaved = false
+    settingsOpen = true
+  }
+
+  async function handleSaveSettings() {
+    await updateSettings({ algorithm: settingsAlgorithm })
+    settings = { ...settings, algorithm: settingsAlgorithm }
+    settingsSaved = true
+    setTimeout(() => {
+      settingsSaved = false
+      settingsOpen = false
+    }, 1200)
+  }
 
   let unread = $derived(
     items.filter((i) => i.readAt === null).sort((a, b) => a.savedAt - b.savedAt)
@@ -35,6 +68,14 @@
     items = data.items
     settings = data.settings
     loading = false
+
+    function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>) {
+      if (changes.items) items = changes.items.newValue ?? []
+      if (changes.settings) settings = normalizeSettings(changes.settings.newValue)
+    }
+
+    chrome.storage.onChanged.addListener(onStorageChanged)
+    return () => chrome.storage.onChanged.removeListener(onStorageChanged)
   })
 
   async function handleReadNow(item: ReadLaterItem) {
@@ -63,10 +104,6 @@
     await removeItem(id)
     const data = await getAll()
     items = data.items
-  }
-
-  function openOptions() {
-    chrome.runtime.openOptionsPage()
   }
 
   function formatDate(ts: number) {
@@ -101,13 +138,75 @@
       {/if}
     </div>
     <button
-      onclick={openOptions}
+      onclick={openSettings}
       class="rounded-md p-1.5 text-stone-400 transition-colors hover:bg-stone-200 hover:text-stone-600 dark:hover:bg-stone-800"
       title="Settings"
     >
       <Settings class="h-4 w-4" />
     </button>
   </div>
+
+  <!-- Settings modal -->
+  {#if settingsOpen}
+    <!-- Backdrop -->
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onclick={() => (settingsOpen = false)}
+      onkeydown={(e) => e.key === 'Escape' && (settingsOpen = false)}
+      role="presentation"
+      tabindex="-1"
+    >
+      <!-- Panel -->
+      <div
+        class="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900"
+        onclick={(e) => e.stopPropagation()}
+        role="presentation"
+      >
+        <div class="mb-5 flex items-center justify-between">
+          <h2 class="text-base font-semibold text-stone-900 dark:text-stone-100">Settings</h2>
+          <button
+            onclick={() => (settingsOpen = false)}
+            class="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800"
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+
+        <p class="mb-1 text-sm font-medium text-stone-700 dark:text-stone-300">Suggestion Algorithm</p>
+        <p class="mb-3 text-xs text-stone-400">How items are selected to show on new tab.</p>
+
+        <div class="space-y-2">
+          {#each algorithms as option (option.value)}
+            <button
+              class="w-full rounded-lg border px-4 py-3 text-left transition-colors {settingsAlgorithm === option.value
+                ? 'border-stone-700 bg-stone-700/5 dark:border-stone-300 dark:bg-stone-300/10'
+                : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-stone-700 dark:bg-stone-800 dark:hover:bg-stone-700'}"
+              onclick={() => (settingsAlgorithm = option.value)}
+            >
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-stone-800 dark:text-stone-200">{option.label}</span>
+                {#if settingsAlgorithm === option.value}
+                  <Check class="h-4 w-4 text-stone-700 dark:text-stone-300" />
+                {/if}
+              </div>
+              <p class="mt-0.5 text-xs text-stone-400">{option.description}</p>
+            </button>
+          {/each}
+        </div>
+
+        <div class="mt-5">
+          <Button onclick={handleSaveSettings} class="w-full gap-2">
+            {#if settingsSaved}
+              <Check class="h-4 w-4" />
+              Saved
+            {:else}
+              Save Settings
+            {/if}
+          </Button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <div class="flex flex-col items-center px-6 pb-16 pt-8">
     {#if loading}
@@ -198,55 +297,110 @@
         </div>
       {/if}
 
-      <!-- ── OTHER ITEMS (smaller papers below) ── -->
+      <!-- ── STACK OF PAPERS (below main card) ── -->
       {#if otherItems.length > 0}
-        <div class="mt-8 w-full max-w-lg space-y-2">
-          {#each otherItems as item, i (item.id)}
-            <div
-              class="group relative rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md dark:border-stone-700 dark:bg-stone-800"
-              style="transform: {paperRotation(i)};"
-            >
-              <div class="flex items-center gap-3">
-                {#if item.favicon}
-                  <img
-                    src={item.favicon}
-                    alt=""
-                    class="h-4 w-4 shrink-0 rounded"
-                    onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
-                  />
-                {:else}
-                  <div class="h-4 w-4 shrink-0 rounded bg-stone-100"></div>
-                {/if}
+        <div class="mt-12 w-full max-w-lg">
+          <p class="mb-3 text-xs font-semibold uppercase tracking-widest text-stone-400">
+            Reading pile · {otherItems.length}
+          </p>
 
-                <button
-                  onclick={() => handleReadNow(item)}
-                  class="min-w-0 flex-1 text-left"
-                >
-                  <p class="truncate text-sm font-medium text-stone-800 group-hover:text-stone-900 dark:text-stone-200">
+          <!-- Container: hover spreads the pile -->
+          <div
+            class="relative"
+            onmouseenter={() => (stackExpanded = true)}
+            onmouseleave={() => { stackExpanded = false; hoveredId = null }}
+            role="list"
+          >
+            {#each otherItems as item, i (item.id)}
+              {@const isHovered = hoveredId === item.id}
+              {@const step = stackExpanded ? EXPANDED_STEP : COLLAPSED_STEP}
+              <div
+                class="absolute w-full cursor-pointer rounded-2xl border bg-white dark:bg-stone-800"
+                style="
+                  top: {i * step}px;
+                  z-index: {isHovered ? 100 : otherItems.length - i};
+                  border-color: {isHovered ? 'rgb(214 211 209)' : 'rgb(231 229 228)'};
+                  transform: {isHovered
+                    ? 'translateY(-20px) scale(1.025)'
+                    : stackExpanded ? 'none' : paperRotation(i)};
+                  box-shadow: {isHovered
+                    ? '0 24px 48px -8px rgba(0,0,0,0.20), 0 8px 16px -4px rgba(0,0,0,0.10)'
+                    : stackExpanded
+                      ? '0 2px 8px rgba(0,0,0,0.08)'
+                      : '0 1px 4px rgba(0,0,0,0.06)'};
+                  transition:
+                    top    0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    box-shadow 0.22s ease,
+                    border-color 0.15s ease;
+                "
+                onmouseenter={() => (hoveredId = item.id)}
+                onmouseleave={() => (hoveredId = null)}
+                role="listitem"
+              >
+                <!-- Always-visible strip -->
+                <div class="flex items-center gap-3 px-5 py-3.5">
+                  {#if item.favicon}
+                    <img
+                      src={item.favicon}
+                      alt=""
+                      class="h-4 w-4 shrink-0 rounded"
+                      onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+                    />
+                  {:else}
+                    <div class="h-4 w-4 shrink-0 rounded bg-stone-100 dark:bg-stone-700"></div>
+                  {/if}
+                  <p class="min-w-0 flex-1 truncate text-sm font-medium text-stone-800 dark:text-stone-200">
                     {item.title || item.url}
                   </p>
-                  <p class="truncate text-xs text-stone-400">{relativeTime(item.savedAt)}</p>
-                </button>
+                  <span class="shrink-0 text-xs text-stone-400">{relativeTime(item.savedAt)}</span>
+                </div>
 
-                <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button
-                    onclick={() => handleMarkRead(item.id)}
-                    class="rounded p-1 text-stone-400 hover:bg-green-50 hover:text-green-600"
-                    title="Mark as read"
-                  >
-                    <Check class="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onclick={() => handleRemove(item.id)}
-                    class="rounded p-1 text-stone-400 hover:bg-red-50 hover:text-red-500"
-                    title="Remove"
-                  >
-                    <X class="h-3.5 w-3.5" />
-                  </button>
+                <!-- Expanded section: smooth via grid-rows trick -->
+                <div
+                  style="
+                    display: grid;
+                    grid-template-rows: {isHovered ? '1fr' : '0fr'};
+                    overflow: hidden;
+                    transition: grid-template-rows 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+                  "
+                >
+                  <div style="min-height: 0" class="overflow-hidden">
+                    <div class="border-t border-stone-100 px-5 pb-4 pt-3 dark:border-stone-700">
+                      <p class="mb-0.5 text-xs font-medium text-stone-500">{getDomain(item.url)}</p>
+                      <p class="truncate text-xs text-stone-400">{item.url}</p>
+                      <p class="mt-1 text-xs text-stone-400">Saved {formatDate(item.savedAt)}</p>
+                      <div class="mt-3 flex gap-2">
+                        <Button class="h-8 flex-1 gap-1.5 text-xs" onclick={() => handleReadNow(item)}>
+                          <ExternalLink class="h-3.5 w-3.5" />
+                          Read Now
+                        </Button>
+                        <button
+                          onclick={() => handleMarkRead(item.id)}
+                          class="flex h-8 items-center gap-1.5 rounded-md border border-stone-200 px-3 text-xs text-stone-500 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-600 dark:border-stone-600"
+                          title="Mark as read"
+                        >
+                          <Check class="h-3.5 w-3.5" />
+                          Done
+                        </button>
+                        <button
+                          onclick={() => handleRemove(item.id)}
+                          class="flex h-8 items-center rounded-md border border-stone-200 px-2.5 text-stone-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-stone-600"
+                          title="Remove"
+                        >
+                          <X class="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          {/each}
+            {/each}
+
+            <!-- Reactive spacer matches current step -->
+            <div style="height: {otherItems.length * (stackExpanded ? EXPANDED_STEP : COLLAPSED_STEP) + 52}px;
+                        transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+          </div>
         </div>
       {/if}
     {/if}
