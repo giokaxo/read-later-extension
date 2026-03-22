@@ -2,6 +2,7 @@
 
 @layer base {
   :root {
+    --radius: 0.5rem;
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -21,31 +22,168 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: 240 10% 3.9%;
-      --foreground: 0 0% 98%;
-      --card: 240 10% 3.9%;
-      --card-foreground: 0 0% 98%;
-      --popover: 240 10% 3.9%;
-      --popover-foreground: 0 0% 98%;
-      --primary: 0 0% 98%;
-      --primary-foreground: 240 5.9% 10%;
-      --secondary: 240 3.7% 15.9%;
-      --secondary-foreground: 0 0% 98%;
-      --muted: 240 3.7% 15.9%;
-      --muted-foreground: 240 5% 64.9%;
-      --accent: 240 3.7% 15.9%;
-      --accent-foreground: 0 0% 98%;
-      --destructive: 0 62.8% 30.6%;
-      --destructive-foreground: 0 0% 98%;
-      --border: 240 3.7% 15.9%;
-      --input: 240 3.7% 15.9%;
-      --ring: 240 4.9% 83.9%;
-    }
+  :root.dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+
+  :root[data-color-scheme='blue'] {
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 214.3 94.6% 92.7%;
+    --secondary-foreground: 224.4 64.3% 32.9%;
+    --accent: 213.3 96.9% 87.3%;
+    --accent-foreground: 224.4 64.3% 32.9%;
+    --ring: 221.2 83.2% 53.3%;
+  }
+
+  :root.dark[data-color-scheme='blue'] {
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 226.2 57% 21%;
+    --secondary-foreground: 213 100% 96.9%;
+    --accent: 224.4 64.3% 32.9%;
+    --accent-foreground: 213 100% 96.9%;
+    --ring: 217.2 91.2% 59.8%;
+  }
+
+  :root[data-color-scheme='green'] {
+    --primary: 142.1 76.2% 36.3%;
+    --primary-foreground: 138.5 76.5% 96.7%;
+    --secondary: 140.6 84.2% 92.5%;
+    --secondary-foreground: 142.4 71.8% 29.2%;
+    --accent: 141 78.9% 85.1%;
+    --accent-foreground: 142.4 71.8% 29.2%;
+    --ring: 142.1 76.2% 36.3%;
+  }
+
+  :root.dark[data-color-scheme='green'] {
+    --primary: 142.1 70.6% 45.3%;
+    --primary-foreground: 138.5 76.5% 96.7%;
+    --secondary: 144.9 80.4% 10%;
+    --secondary-foreground: 138.5 76.5% 96.7%;
+    --accent: 143.8 61.2% 20.2%;
+    --accent-foreground: 138.5 76.5% 96.7%;
+    --ring: 142.1 70.6% 45.3%;
+  }
+
+  :root[data-color-scheme='orange'] {
+    --primary: 20.5 90.2% 48.2%;
+    --primary-foreground: 33.3 100% 96.5%;
+    --secondary: 34.3 100% 91.8%;
+    --secondary-foreground: 15.3 74.6% 27.8%;
+    --accent: 32.1 97.7% 83.1%;
+    --accent-foreground: 15.3 74.6% 27.8%;
+    --ring: 20.5 90.2% 48.2%;
+  }
+
+  :root.dark[data-color-scheme='orange'] {
+    --primary: 24.6 95% 53.1%;
+    --primary-foreground: 33.3 100% 96.5%;
+    --secondary: 17.5 88.3% 40.4%;
+    --secondary-foreground: 33.3 100% 96.5%;
+    --accent: 15.3 74.6% 27.8%;
+    --accent-foreground: 33.3 100% 96.5%;
+    --ring: 24.6 95% 53.1%;
+  }
+
+  :root[data-color-scheme='red'] {
+    --primary: 0 72.2% 50.6%;
+    --primary-foreground: 0 85.7% 97.3%;
+    --secondary: 0 93.3% 94.1%;
+    --secondary-foreground: 0 62.8% 30.6%;
+    --accent: 0 96.3% 89.4%;
+    --accent-foreground: 0 62.8% 30.6%;
+    --ring: 0 72.2% 50.6%;
+  }
+
+  :root.dark[data-color-scheme='red'] {
+    --primary: 0 84.2% 60.2%;
+    --primary-foreground: 0 85.7% 97.3%;
+    --secondary: 0 73.7% 41.8%;
+    --secondary-foreground: 0 85.7% 97.3%;
+    --accent: 0 62.8% 30.6%;
+    --accent-foreground: 0 85.7% 97.3%;
+    --ring: 0 84.2% 60.2%;
+  }
+
+  :root[data-color-scheme='rose'] {
+    --primary: 346.8 77.2% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 355.6 100% 94.7%;
+    --secondary-foreground: 341.5 75.5% 30.4%;
+    --accent: 352.7 96.1% 90%;
+    --accent-foreground: 341.5 75.5% 30.4%;
+    --ring: 346.8 77.2% 49.8%;
+  }
+
+  :root.dark[data-color-scheme='rose'] {
+    --primary: 349.7 89.2% 60.2%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 345.3 82.7% 40.8%;
+    --secondary-foreground: 355.7 100% 97.3%;
+    --accent: 341.5 75.5% 30.4%;
+    --accent-foreground: 355.7 100% 97.3%;
+    --ring: 349.7 89.2% 60.2%;
+  }
+
+  :root[data-color-scheme='violet'] {
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 250 100% 97.6%;
+    --secondary: 251.4 91.3% 95.5%;
+    --secondary-foreground: 263.5 67.4% 34.9%;
+    --accent: 250.5 95.2% 91.8%;
+    --accent-foreground: 263.5 67.4% 34.9%;
+    --ring: 262.1 83.3% 57.8%;
+  }
+
+  :root.dark[data-color-scheme='violet'] {
+    --primary: 258.3 89.5% 66.3%;
+    --primary-foreground: 250 100% 97.6%;
+    --secondary: 263.4 69.3% 42.2%;
+    --secondary-foreground: 250 100% 97.6%;
+    --accent: 263.5 67.4% 34.9%;
+    --accent-foreground: 250 100% 97.6%;
+    --ring: 258.3 89.5% 66.3%;
+  }
+
+  :root[data-color-scheme='yellow'] {
+    --primary: 45.4 93.4% 47.5%;
+    --primary-foreground: 26 83.3% 14.1%;
+    --secondary: 54.9 96.7% 88%;
+    --secondary-foreground: 28.4 72.5% 25.7%;
+    --accent: 52.8 98.3% 76.9%;
+    --accent-foreground: 28.4 72.5% 25.7%;
+    --ring: 45.4 93.4% 47.5%;
+  }
+
+  :root.dark[data-color-scheme='yellow'] {
+    --primary: 47.9 95.8% 53.1%;
+    --primary-foreground: 26 83.3% 14.1%;
+    --secondary: 35.5 91.7% 32.9%;
+    --secondary-foreground: 54.5 91.7% 95.3%;
+    --accent: 28.4 72.5% 25.7%;
+    --accent-foreground: 54.5 91.7% 95.3%;
+    --ring: 47.9 95.8% 53.1%;
   }
 }
 
@@ -53,6 +191,11 @@
   * {
     @apply border-border box-border;
   }
+
+  html {
+    background-color: hsl(var(--background));
+  }
+
   body {
     @apply bg-background text-foreground;
     margin: 0;

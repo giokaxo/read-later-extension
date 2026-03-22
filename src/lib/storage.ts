@@ -1,15 +1,16 @@
 import type { ReadLaterItem, ExtensionSettings, StorageSchema } from './types'
+import { DEFAULT_SETTINGS, normalizeSettings } from './settings.js'
 
 const DEFAULTS: StorageSchema = {
   items: [],
-  settings: { algorithm: 'chronological' },
+  settings: DEFAULT_SETTINGS,
 }
 
 export async function getAll(): Promise<StorageSchema> {
   const data = await chrome.storage.sync.get(['items', 'settings'])
   return {
     items: data.items ?? DEFAULTS.items,
-    settings: data.settings ?? DEFAULTS.settings,
+    settings: normalizeSettings(data.settings),
   }
 }
 
@@ -35,7 +36,7 @@ export async function removeItem(id: string): Promise<void> {
 
 export async function updateSettings(s: Partial<ExtensionSettings>): Promise<void> {
   const { settings } = await getAll()
-  await chrome.storage.sync.set({ settings: { ...settings, ...s } })
+  await chrome.storage.sync.set({ settings: normalizeSettings({ ...settings, ...s }) })
 }
 
 export async function bumpItem(id: string): Promise<void> {
