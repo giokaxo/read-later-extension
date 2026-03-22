@@ -4,7 +4,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   algorithm: 'chronological',
   appearance: 'system',
   colorScheme: 'default',
-  toolbarAction: 'popup',
+  toolbarAction: 'auto-save',
+  linkTarget: 'same-tab',
 }
 
 export function normalizeSettings(

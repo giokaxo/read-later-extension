@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { BookmarkPlus, ExternalLink, RefreshCw, Settings, Check, X, Archive } from 'lucide-svelte'
+  import SettingsEditor from '$lib/components/settings-editor.svelte'
+  import { ScrollArea } from '$lib/components/ui/scroll-area/index.js'
   import { Button } from '$lib/components/ui/button/index.js'
   import {
     getAll,
@@ -9,10 +11,9 @@
     bumpItem,
     selectSuggestion,
     relativeTime,
-    updateSettings,
   } from '$lib/storage.js'
   import { normalizeSettings } from '$lib/settings.js'
-  import type { ReadLaterItem, ExtensionSettings, SuggestionAlgorithm } from '$lib/types.js'
+  import type { ReadLaterItem, ExtensionSettings } from '$lib/types.js'
 
   let items = $state<ReadLaterItem[]>([])
   let settings = $state<ExtensionSettings>(normalizeSettings())
@@ -20,35 +21,10 @@
   let skippedIds = $state<Set<string>>(new Set())
   let hoveredId = $state<string | null>(null)
   let stackExpanded = $state(false)
+  let settingsOpen = $state(false)
 
   const COLLAPSED_STEP = 28   // px per card when stacked
   const EXPANDED_STEP  = 68   // px per card when spread (full card visible + gap)
-
-  let settingsOpen = $state(false)
-  let settingsAlgorithm = $state<SuggestionAlgorithm>('chronological')
-  let settingsSaved = $state(false)
-
-  const algorithms: { value: SuggestionAlgorithm; label: string; description: string }[] = [
-    { value: 'chronological', label: 'Oldest First', description: 'Suggest items in the order they were saved' },
-    { value: 'reverse-chronological', label: 'Newest First', description: 'Suggest the most recently saved items first' },
-    { value: 'random', label: 'Random', description: 'Pick a random saved item each time' },
-  ]
-
-  function openSettings() {
-    settingsAlgorithm = settings.algorithm
-    settingsSaved = false
-    settingsOpen = true
-  }
-
-  async function handleSaveSettings() {
-    await updateSettings({ algorithm: settingsAlgorithm })
-    settings = { ...settings, algorithm: settingsAlgorithm }
-    settingsSaved = true
-    setTimeout(() => {
-      settingsSaved = false
-      settingsOpen = false
-    }, 1200)
-  }
 
   let unread = $derived(
     items.filter((i) => i.readAt === null).sort((a, b) => a.savedAt - b.savedAt)
@@ -62,6 +38,28 @@
   )
 
   let otherItems = $derived(unread.filter((i) => i.id !== suggestion?.id))
+
+  $effect(() => {
+    if (typeof document === 'undefined') return
+
+    const previousOverflow = document.body.style.overflow
+    const previousPaddingRight = document.body.style.paddingRight
+
+    if (settingsOpen) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+
+      document.body.style.overflow = 'hidden'
+
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`
+      }
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.paddingRight = previousPaddingRight
+    }
+  })
 
   function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>) {
     if (changes.items) {
@@ -90,7 +88,11 @@
 
   async function handleReadNow(item: ReadLaterItem) {
     await markAsRead(item.id)
-    window.location.href = item.url
+    if (settings.linkTarget === 'new-tab') {
+      window.open(item.url, '_blank')
+    } else {
+      window.location.href = item.url
+    }
   }
 
   async function handleSkip() {
@@ -126,6 +128,10 @@
     } catch {
       return url
     }
+  }
+
+  function openSettings() {
+    settingsOpen = true
   }
 
   // Slight rotation for paper stack effect, alternates and varies by index
@@ -166,64 +172,37 @@
     </div>
   </div>
 
-  <!-- Settings modal -->
   {#if settingsOpen}
-    <!-- Backdrop -->
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      class="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 sm:items-center"
       onclick={() => (settingsOpen = false)}
       onkeydown={(e) => e.key === 'Escape' && (settingsOpen = false)}
       role="presentation"
       tabindex="-1"
     >
-      <!-- Panel -->
       <div
-        class="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl"
+        class="flex h-[calc(100dvh-2rem)] max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
         onclick={(e) => e.stopPropagation()}
         role="presentation"
       >
-        <div class="mb-5 flex items-center justify-between">
-          <h2 class="text-base font-semibold text-foreground">Settings</h2>
+        <div class="z-10 shrink-0 flex items-center justify-between border-b border-border bg-card/95 px-5 py-4 backdrop-blur">
+          <div>
+            <h2 class="text-base font-semibold text-foreground">Settings</h2>
+          </div>
           <button
             onclick={() => (settingsOpen = false)}
-            class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            title="Close settings"
           >
             <X class="h-4 w-4" />
           </button>
         </div>
 
-        <p class="mb-1 text-sm font-medium text-foreground">Suggestion Algorithm</p>
-        <p class="mb-3 text-xs text-muted-foreground">How items are selected to show on new tab.</p>
-
-        <div class="space-y-2">
-          {#each algorithms as option (option.value)}
-            <button
-              class="w-full rounded-lg border px-4 py-3 text-left transition-colors {settingsAlgorithm === option.value
-                ? 'border-primary bg-primary/5'
-                : 'border-border bg-card hover:bg-accent'}"
-              onclick={() => (settingsAlgorithm = option.value)}
-            >
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-foreground">{option.label}</span>
-                {#if settingsAlgorithm === option.value}
-                  <Check class="h-4 w-4 text-primary" />
-                {/if}
-              </div>
-              <p class="mt-0.5 text-xs text-muted-foreground">{option.description}</p>
-            </button>
-          {/each}
-        </div>
-
-        <div class="mt-5">
-          <Button onclick={handleSaveSettings} class="w-full gap-2">
-            {#if settingsSaved}
-              <Check class="h-4 w-4" />
-              Saved
-            {:else}
-              Save Settings
-            {/if}
-          </Button>
-        </div>
+        <ScrollArea class="min-h-0 flex-1 overscroll-contain" type="always">
+          <div class="px-5 pt-5">
+            <SettingsEditor layout="panel" />
+          </div>
+        </ScrollArea>
       </div>
     </div>
   {/if}
@@ -305,7 +284,9 @@
             <!-- Actions -->
             <div class="mt-5 flex gap-2">
               <Button class="flex-1 gap-2 h-11 text-base" onclick={() => handleReadNow(suggestion!)}>
-                <ExternalLink class="h-4 w-4" />
+                {#if settings.linkTarget === 'new-tab'}
+                  <ExternalLink class="h-4 w-4" />
+                {/if}
                 Read Now
               </Button>
               <Button variant="outline" class="gap-2 h-11" onclick={handleSkip}>
@@ -392,7 +373,9 @@
                       <p class="mt-1 text-xs text-muted-foreground">Saved {formatDate(item.savedAt)}</p>
                       <div class="mt-3 flex gap-2">
                         <Button class="h-8 flex-1 gap-1.5 text-xs" onclick={() => handleReadNow(item)}>
-                          <ExternalLink class="h-3.5 w-3.5" />
+                          {#if settings.linkTarget === 'new-tab'}
+                            <ExternalLink class="h-3.5 w-3.5" />
+                          {/if}
                           Read Now
                         </Button>
                         <button
