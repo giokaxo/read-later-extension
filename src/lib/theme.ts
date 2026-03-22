@@ -50,18 +50,29 @@ export async function initializeTheme(
   ) => {
     if (areaName !== 'sync' || !changes.settings) return
 
-    currentSettings = normalizeSettings(changes.settings.newValue)
+    currentSettings = normalizeSettings(
+      changes.settings.newValue as Partial<ExtensionSettings> | undefined
+    )
     applyCurrentTheme()
   }
 
   applyCurrentTheme()
-  mediaQuery.addEventListener?.('change', handleMediaChange)
-  mediaQuery.addListener?.(handleMediaChange)
+
+  if (typeof mediaQuery.addEventListener === 'function') {
+    mediaQuery.addEventListener('change', handleMediaChange)
+  } else {
+    mediaQuery.addListener(handleMediaChange)
+  }
+
   chrome.storage.onChanged.addListener(handleStorageChange)
 
   return () => {
-    mediaQuery.removeEventListener?.('change', handleMediaChange)
-    mediaQuery.removeListener?.(handleMediaChange)
+    if (typeof mediaQuery.removeEventListener === 'function') {
+      mediaQuery.removeEventListener('change', handleMediaChange)
+    } else {
+      mediaQuery.removeListener(handleMediaChange)
+    }
+
     chrome.storage.onChanged.removeListener(handleStorageChange)
   }
 }

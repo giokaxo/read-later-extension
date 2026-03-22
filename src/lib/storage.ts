@@ -7,10 +7,13 @@ const DEFAULTS: StorageSchema = {
 }
 
 export async function getAll(): Promise<StorageSchema> {
-  const data = await chrome.storage.sync.get(['items', 'settings'])
+  const storageData = (await chrome.storage.sync.get(['items', 'settings'])) as {
+    items?: ReadLaterItem[]
+    settings?: Partial<ExtensionSettings>
+  }
   return {
-    items: data.items ?? DEFAULTS.items,
-    settings: normalizeSettings(data.settings),
+    items: storageData.items ?? DEFAULTS.items,
+    settings: normalizeSettings(storageData.settings),
   }
 }
 

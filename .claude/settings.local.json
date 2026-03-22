@@ -16,7 +16,9 @@
       "Bash(__NEW_LINE_dd5a03fe561744bf__ cat:*)",
       "Bash(/Users/giokaxo/Code/experiments/read-later-extension/newtab.html:*)",
       "Bash(/Users/giokaxo/Code/experiments/read-later-extension/options.html:*)",
-      "Bash(perl -i -pe 's/flex-shrink-0/shrink-0/g' src/newtab/NewTab.svelte)"
+      "Bash(perl -i -pe 's/flex-shrink-0/shrink-0/g' src/newtab/NewTab.svelte)",
+      "Bash(git add:*)",
+      "Bash(ls /Users/giokaxo/Code/experiments/read-later-extension/*.html)"
     ]
   }
 }

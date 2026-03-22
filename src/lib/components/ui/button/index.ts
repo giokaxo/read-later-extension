@@ -30,7 +30,7 @@ const buttonVariants = tv({
 type Variant = VariantProps<typeof buttonVariants>['variant']
 type Size = VariantProps<typeof buttonVariants>['size']
 
-type Props = ButtonPrimitive.Props & {
+type Props = ButtonPrimitive.RootProps & {
   variant?: Variant
   size?: Size
   class?: string

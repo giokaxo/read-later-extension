@@ -63,21 +63,21 @@
 
   let otherItems = $derived(unread.filter((i) => i.id !== suggestion?.id))
 
-    function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>) {
-      if (changes.items) {
-        items = (changes.items.newValue as ReadLaterItem[] | undefined) ?? []
-      }
-
-      if (changes.settings) {
-        settings = normalizeSettings(
-          changes.settings.newValue as Partial<ExtensionSettings> | undefined
-        )
-      }
+  function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>) {
+    if (changes.items) {
+      items = (changes.items.newValue as ReadLaterItem[] | undefined) ?? []
     }
 
-    chrome.storage.onChanged.addListener(onStorageChanged)
+    if (changes.settings) {
+      settings = normalizeSettings(
+        changes.settings.newValue as Partial<ExtensionSettings> | undefined
+      )
+    }
+  }
 
   onMount(() => {
+    chrome.storage.onChanged.addListener(onStorageChanged)
+
     void (async () => {
       const data = await getAll()
       items = data.items
