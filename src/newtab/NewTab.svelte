@@ -15,6 +15,10 @@
     bumpItem,
     selectSuggestion,
   } from '$lib/storage.js'
+  import {
+    hasSettingsPanelQuery,
+    SETTINGS_PANEL_QUERY_KEY,
+  } from '$lib/navigation.js'
   import { normalizeSettings } from '$lib/settings.js'
   import type { ReadLaterItem, ExtensionSettings } from '$lib/types.js'
 
@@ -109,6 +113,10 @@
   }
 
   onMount(() => {
+    if (hasSettingsPanelQuery(window.location.href)) {
+      settingsOpen = true
+    }
+
     chrome.storage.onChanged.addListener(onStorageChanged)
 
     const handleResize = () => updateStackViewportHeight()
@@ -162,6 +170,26 @@
 
   function openSettings() {
     settingsOpen = true
+    syncSettingsUrl(true)
+  }
+
+  function closeSettings() {
+    settingsOpen = false
+    syncSettingsUrl(false)
+  }
+
+  function syncSettingsUrl(open: boolean) {
+    if (typeof window === 'undefined') return
+
+    const url = new URL(window.location.href)
+
+    if (open) {
+      url.searchParams.set(SETTINGS_PANEL_QUERY_KEY, 'open')
+    } else {
+      url.searchParams.delete(SETTINGS_PANEL_QUERY_KEY)
+    }
+
+    window.history.replaceState({}, '', url)
   }
 
   function updateStackViewportHeight() {
@@ -209,7 +237,7 @@
   </PageHeader>
 
   {#if settingsOpen}
-    <SettingsModal onClose={() => (settingsOpen = false)}>
+    <SettingsModal onClose={closeSettings}>
       {#snippet children()}
         <SettingsEditor layout="panel" />
       {/snippet}

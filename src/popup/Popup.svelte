@@ -14,6 +14,7 @@
     relativeTime,
   } from '$lib/storage.js'
   import { isRestrictedUrl } from '$lib/format.js'
+  import { getSettingsPanelUrl } from '$lib/navigation.js'
   import type { ReadLaterItem } from '$lib/types.js'
 
   let items = $state<ReadLaterItem[]>([])
@@ -118,8 +119,9 @@
     items = data.items
   }
 
-  function openOptions() {
-    chrome.runtime.openOptionsPage()
+  async function openOptions() {
+    await chrome.tabs.create({ url: getSettingsPanelUrl() })
+    window.close()
   }
 </script>
 
