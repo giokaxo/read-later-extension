@@ -4,35 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Archive · Read Later</title>
-    <script>
-      (() => {
-        const root = document.documentElement
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-        const apply = (settings = {}) => {
-          const appearance = settings.appearance ?? 'system'
-          const resolvedAppearance =
-            appearance === 'system'
-              ? mediaQuery.matches
-                ? 'dark'
-                : 'light'
-              : appearance
-
-          root.dataset.colorScheme = settings.colorScheme ?? 'default'
-          root.classList.toggle('dark', resolvedAppearance === 'dark')
-          root.style.colorScheme = resolvedAppearance
-        }
-
-        apply()
-
-        if (!globalThis.chrome?.storage?.sync) return
-
-        chrome.storage.sync
-          .get('settings')
-          .then(({ settings }) => apply(settings))
-          .catch(() => {})
-      })()
-    </script>
   </head>
   <body>
     <div id="app"></div>
