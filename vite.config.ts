@@ -4,8 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 
 export default defineConfig({
+  base: './',
   plugins: [tailwindcss(), svelte()],
   build: {
+    modulePreload: false,
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
