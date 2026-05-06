@@ -2,6 +2,8 @@
   import { onDestroy, onMount } from 'svelte'
   import {
     Check,
+    Database,
+    Download,
     Link,
     Monitor,
     Moon,
@@ -9,10 +11,11 @@
     Palette,
     Shuffle,
     Sun,
+    Upload,
   } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button/index.js'
   import { DEFAULT_SETTINGS } from '$lib/settings.js'
-  import { getAll, updateSettings } from '$lib/storage.js'
+  import { getAll, getStoredTabsExport, importStoredTabsFromText, updateSettings } from '$lib/storage.js'
   import { applyThemeSettings } from '$lib/theme.js'
   import { cn } from '$lib/utils.js'
   import type {
@@ -53,6 +56,11 @@
   let initialSettings = $state<ExtensionSettings>({ ...DEFAULT_SETTINGS })
   let saved = $state(false)
   let loading = $state(true)
+  let itemCount = $state(0)
+  let importing = $state(false)
+  let importFileInput = $state<HTMLInputElement | null>(null)
+  let dataMessage = $state('Export your saved and archived tabs as a JSON backup.')
+  let dataMessageTone = $state<'muted' | 'success' | 'error'>('muted')
 
   const appearanceOptions: AppearanceOption[] = [
     {
@@ -279,6 +287,17 @@
       : 'sticky bottom-0 z-20 mt-8 flex flex-col gap-4 rounded-t-2xl border-x border-t border-border/80 bg-background/92 px-5 py-4 shadow-[0_-18px_40px_-28px_hsl(var(--foreground)/0.35)] backdrop-blur sm:flex-row sm:items-center sm:justify-between'
   }
 
+  function dataMessageClass() {
+    return cn(
+      'mt-3 text-sm leading-6',
+      dataMessageTone === 'success'
+        ? 'text-green-600'
+        : dataMessageTone === 'error'
+          ? 'text-destructive'
+          : 'text-muted-foreground'
+    )
+  }
+
   $effect(() => {
     if (loading) return
     applyThemeSettings({ appearance, colorScheme })
@@ -293,6 +312,7 @@
       toolbarAction = data.settings.toolbarAction
       linkTarget = data.settings.linkTarget
       initialSettings = { ...data.settings }
+      itemCount = data.items.length
       loading = false
     })()
   })
@@ -336,6 +356,47 @@
     initialSettings = { ...initialSettings, algorithm, appearance, colorScheme, toolbarAction, linkTarget }
     saved = true
     setTimeout(() => (saved = false), 2000)
+  }
+
+  async function handleExport() {
+    const payload = await getStoredTabsExport()
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `read-later-tabs-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+    itemCount = payload.items.length
+    dataMessage = `Exported ${payload.items.length} ${payload.items.length === 1 ? 'tab' : 'tabs'}.`
+    dataMessageTone = 'success'
+  }
+
+  function openImportPicker() {
+    importFileInput?.click()
+  }
+
+  async function handleImport(event: Event) {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+
+    if (!file) return
+
+    importing = true
+
+    try {
+      const result = await importStoredTabsFromText(await file.text())
+      const data = await getAll()
+      itemCount = data.items.length
+      dataMessage = `Imported ${result.imported} ${result.imported === 1 ? 'tab' : 'tabs'}${result.skipped ? `, skipped ${result.skipped} duplicate${result.skipped === 1 ? '' : 's'}` : ''}.`
+      dataMessageTone = 'success'
+    } catch (error) {
+      dataMessage = error instanceof Error ? error.message : 'Import failed.'
+      dataMessageTone = 'error'
+    } finally {
+      importing = false
+    }
   }
 </script>
 
@@ -625,6 +686,49 @@
             </span>
           </button>
         {/each}
+      </div>
+    </section>
+
+    <section class={sectionClass()}>
+      <div class="space-y-3">
+        <div class="flex items-start gap-3">
+          <div class="rounded-full bg-primary/10 p-2.5 text-primary ring-1 ring-primary/15">
+            <Database class="h-4 w-4" />
+          </div>
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Data</p>
+            <h3 class="mt-2 text-base font-semibold text-foreground">Move your stored tabs</h3>
+            <p class="mt-2 text-sm leading-6 text-muted-foreground">
+              Export a backup or import tabs from another Read Later install.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <Button type="button" variant="outline" class="gap-2" onclick={handleExport}>
+            <Download class="h-4 w-4" />
+            Export Tabs
+          </Button>
+
+          <Button type="button" variant="outline" class="gap-2" onclick={openImportPicker} disabled={importing}>
+            <Upload class="h-4 w-4" />
+            {importing ? 'Importing...' : 'Import Tabs'}
+          </Button>
+
+          <input
+            bind:this={importFileInput}
+            type="file"
+            accept="application/json,.json"
+            class="sr-only"
+            onchange={handleImport}
+          />
+        </div>
+
+        <p class={dataMessageClass()}>
+          {dataMessage} Current storage has {itemCount} {itemCount === 1 ? 'tab' : 'tabs'}.
+        </p>
       </div>
     </section>
 
