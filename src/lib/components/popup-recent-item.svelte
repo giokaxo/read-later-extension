@@ -1,7 +1,7 @@
 <script lang="ts">
   import { X } from 'lucide-svelte'
   import ItemFavicon from '$lib/components/item-favicon.svelte'
-  import { relativeTime } from '$lib/storage.js'
+  import { relativeTime, savedAgeColorClass } from '$lib/storage.js'
   import type { ReadLaterItem } from '$lib/types.js'
 
   let {
@@ -28,7 +28,7 @@
   >
     {item.title || item.url}
   </a>
-  <span class="flex-shrink-0 text-xs text-muted-foreground">
+  <span class={['flex-shrink-0 text-xs font-medium', savedAgeColorClass(item.savedAt)]}>
     {relativeTime(item.savedAt)}
   </span>
   <button

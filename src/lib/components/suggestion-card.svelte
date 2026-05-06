@@ -3,7 +3,7 @@
   import { Button } from '$lib/components/ui/button/index.js'
   import ItemFavicon from '$lib/components/item-favicon.svelte'
   import { formatDate, getDomain } from '$lib/format.js'
-  import { relativeTime } from '$lib/storage.js'
+  import { relativeTime, savedAgeColorClass } from '$lib/storage.js'
   import type { ReadLaterItem, LinkTarget } from '$lib/types.js'
 
   let {
@@ -61,7 +61,7 @@
       <div class="mt-auto flex items-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
         <span>Saved {formatDate(item.savedAt)}</span>
         <span>·</span>
-        <span>{relativeTime(item.savedAt)}</span>
+        <span class={savedAgeColorClass(item.savedAt)}>{relativeTime(item.savedAt)}</span>
         {#if unreadCount > 1}
           <span>·</span>
           <span>{unreadCount - 1} other {unreadCount - 1 === 1 ? 'item' : 'items'} waiting</span>

@@ -3,7 +3,7 @@
   import { Button } from '$lib/components/ui/button/index.js'
   import ItemFavicon from '$lib/components/item-favicon.svelte'
   import { formatDate, getDomain } from '$lib/format.js'
-  import { relativeTime } from '$lib/storage.js'
+  import { relativeTime, savedAgeColorClass } from '$lib/storage.js'
   import type { ReadLaterItem, LinkTarget } from '$lib/types.js'
 
   let {
@@ -49,7 +49,9 @@
     <p class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
       {item.title || item.url}
     </p>
-    <span class="shrink-0 text-xs text-muted-foreground">{relativeTime(item.savedAt)}</span>
+    <span class={['shrink-0 text-xs font-medium', savedAgeColorClass(item.savedAt)]}>
+      {relativeTime(item.savedAt)}
+    </span>
   </div>
 
   <div
